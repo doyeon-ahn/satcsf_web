@@ -1,0 +1,301 @@
+---
+title: "City EDGAR CO₂ Figures"
+format:
+  html:
+    page-layout: full
+    toc: false
+---
+
+```{=html}
+<style>
+/* ── Controls ── */
+.controls {
+  display: flex; flex-wrap: wrap; gap: 12px;
+  align-items: flex-end; margin-bottom: 20px;
+  padding: 16px; background: #f8f9fa; border-radius: 8px;
+}
+.control-group { display: flex; flex-direction: column; gap: 4px; }
+.control-group label {
+  font-size: 0.85em; font-weight: 600; color: #555;
+  text-transform: uppercase; letter-spacing: 0.05em;
+}
+.control-group select {
+  padding: 8px 12px; border: 1px solid #ccc; border-radius: 6px;
+  font-size: 1em; min-width: 200px; background: white;
+}
+.year-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+.year-btn {
+  padding: 7px 14px; border: 1px solid #ccc; border-radius: 6px;
+  background: white; cursor: pointer; font-size: 0.95em; transition: all 0.15s;
+}
+.year-btn.active { background: #2c7bb6; color: white; border-color: #2c7bb6; }
+.year-btn:hover:not(.active) { background: #e9ecef; }
+
+/* ── City info banner ── */
+#city-info {
+  margin-bottom: 16px; padding: 10px 16px; background: #e8f4fd;
+  border-radius: 6px; font-size: 1em; color: #444; display: none;
+}
+#city-info strong { font-size: 1.15em; color: #111; }
+
+/* ── Figure grid ── */
+.fig-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 16px; margin-top: 8px;
+}
+.fig-card {
+  border: 1px solid #e0e0e0; border-radius: 8px;
+  overflow: hidden; background: white;
+  transition: box-shadow 0.2s;
+}
+.fig-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.15); }
+.fig-label {
+  text-align: center; font-size: 0.82em; font-weight: 600; color: #555;
+  padding: 6px; background: #f1f3f5; border-bottom: 1px solid #e0e0e0;
+  text-transform: uppercase; letter-spacing: 0.05em;
+}
+.fig-card img {
+  width: 100%; display: block; cursor: zoom-in;
+  transition: opacity 0.15s;
+}
+.fig-card img:hover { opacity: 0.88; }
+.fig-missing {
+  padding: 40px 0; text-align: center; color: #aaa; font-size: 0.9em;
+}
+.zoom-hint {
+  text-align: center; font-size: 0.75em; color: #999;
+  padding: 4px 0 6px; background: #fafafa;
+}
+
+/* ── Lightbox overlay ── */
+#lightbox {
+  display: none;
+  position: fixed; inset: 0; z-index: 9999;
+  background: rgba(0,0,0,0.85);
+  align-items: center; justify-content: center;
+  flex-direction: column;
+  cursor: zoom-out;
+}
+#lightbox.open { display: flex; }
+#lightbox-img {
+  max-width: 92vw; max-height: 88vh;
+  border-radius: 6px; box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+  cursor: default;
+  transition: transform 0.2s;
+}
+#lightbox-caption {
+  margin-top: 12px; color: #ddd; font-size: 0.95em; text-align: center;
+}
+#lightbox-close {
+  position: fixed; top: 18px; right: 24px;
+  font-size: 2em; color: white; cursor: pointer;
+  background: none; border: none; line-height: 1;
+  opacity: 0.8;
+}
+#lightbox-close:hover { opacity: 1; }
+#lightbox-nav {
+  position: fixed; top: 50%; transform: translateY(-50%);
+  width: 100%; display: flex; justify-content: space-between;
+  pointer-events: none; padding: 0 12px; box-sizing: border-box;
+}
+.lb-arrow {
+  pointer-events: all; background: rgba(255,255,255,0.15);
+  border: none; color: white; font-size: 2em; cursor: pointer;
+  border-radius: 50%; width: 48px; height: 48px;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s;
+}
+.lb-arrow:hover { background: rgba(255,255,255,0.35); }
+</style>
+
+<!-- Controls -->
+<div class="controls">
+  <div class="control-group">
+    <label>Region</label>
+    <select id="region-select" onchange="filterCities()">
+      <option value="">All Regions</option>
+    </select>
+  </div>
+  <div class="control-group">
+    <label>City</label>
+    <select id="city-select" onchange="updateFigures()">
+      <option value="">Select a city...</option>
+    </select>
+  </div>
+  <div class="control-group">
+    <label>Year</label>
+    <div class="year-btns">
+      <button class="year-btn active" onclick="selectYear(2020,this)">2020</button>
+      <button class="year-btn" onclick="selectYear(2021,this)">2021</button>
+      <button class="year-btn" onclick="selectYear(2022,this)">2022</button>
+    </div>
+  </div>
+</div>
+
+<!-- City info banner -->
+<div id="city-info"></div>
+
+<!-- Figure grid -->
+<div class="fig-grid" id="fig-grid">
+  <div style="grid-column:1/-1;color:#aaa;text-align:center;padding:60px 0;font-size:1.1em;">
+    Select a city above to view EDGAR CO&#8322; figures.
+  </div>
+</div>
+
+<!-- Lightbox -->
+<div id="lightbox" onclick="closeLightbox(event)">
+  <button id="lightbox-close" onclick="closeLightbox()">&times;</button>
+  <img id="lightbox-img" src="" alt="" onclick="event.stopPropagation()">
+  <div id="lightbox-caption"></div>
+  <div id="lightbox-nav">
+    <button class="lb-arrow" onclick="event.stopPropagation(); shiftLightbox(-1)">&#8592;</button>
+    <button class="lb-arrow" onclick="event.stopPropagation(); shiftLightbox(1)">&#8594;</button>
+  </div>
+</div>
+
+<script>
+const CITIES = [{"id": "C40_022", "name": "Abidjan", "country": "Cote dIvoire", "region": "Africa", "fig_id": "C40_022-Abidjan"}, {"id": "fossil0076", "name": "Abu Dhabi", "country": "UAE", "region": "South and West Asia", "fig_id": "fossil0076-AbuDhabi"}, {"id": "C40_023", "name": "Accra", "country": "Ghana", "region": "Africa", "fig_id": "C40_023-Accra"}, {"id": "fossil0069", "name": "Ad Damman", "country": "Saudi Arabia", "region": "South and West Asia", "fig_id": "fossil0069-AdDamman"}, {"id": "C40_028", "name": "AddisAbaba", "country": "Ethiopia", "region": "Africa", "fig_id": "C40_028-AddisAbaba"}, {"id": "fossil0151", "name": "Adelaide", "country": "Australia", "region": "Europe", "fig_id": "fossil0151-Adelaide"}, {"id": "fossil0157", "name": "Ahmadabad", "country": "India", "region": "South and West Asia", "fig_id": "fossil0157-Ahmadabad"}, {"id": "fossil0160", "name": "Ahvaz", "country": "Iran", "region": "South and West Asia", "fig_id": "fossil0160-Ahvaz"}, {"id": "fossil0126", "name": "Al Ain", "country": "UAE", "region": "South and West Asia", "fig_id": "fossil0126-AlAin"}, {"id": "fossil0139", "name": "Al Hofuf", "country": "Saudi Arabia", "region": "South and West Asia", "fig_id": "fossil0139-AlHofuf"}, {"id": "fossil0019", "name": "Al-Ahmadi", "country": "Kuwait", "region": "South and West Asia", "fig_id": "fossil0019-Al-Ahmadi"}, {"id": "fossil0196", "name": "AlQurayyah powerplant", "country": "nan", "region": "Other", "fig_id": "fossil0196-AlQurayyahpowerplant"}, {"id": "fossil0233", "name": "Algoma_Steel", "country": "nan", "region": "Other", "fig_id": "fossil0233-Algoma_Steel"}, {"id": "fossil0092", "name": "Almaty", "country": "Kazakhstan", "region": "Central Asia", "fig_id": "fossil0092-Almaty"}, {"id": "fossil0148", "name": "Amman", "country": "Jordan", "region": "South and West Asia", "fig_id": "fossil0148-Amman"}, {"id": "fossil0165", "name": "Amsterdam", "country": "Netherlands", "region": "Europe", "fig_id": "fossil0165-Amsterdam"}, {"id": "fossil0077", "name": "Ankara", "country": "Turkey", "region": "Europe", "fig_id": "fossil0077-Ankara"}, {"id": "fossil0197", "name": "Arnot Duvha Hendrina powerplants", "country": "nan", "region": "Other", "fig_id": "fossil0197-ArnotDuvhaHendrinapowerplants"}, {"id": "fossil0170", "name": "Ashgabat", "country": "Turkmenistan", "region": "Central Asia", "fig_id": "fossil0170-Ashgabat"}, {"id": "fossil0154", "name": "Astana", "country": "Kazakhstan", "region": "Central Asia", "fig_id": "fossil0154-Astana"}, {"id": "fossil0058", "name": "Athens", "country": "Greece", "region": "Europe", "fig_id": "fossil0058-Athens"}, {"id": "fossil0059", "name": "Atlanta", "country": "USA", "region": "North America", "fig_id": "fossil0059-Atlanta"}, {"id": "C40_001", "name": "Auckland", "country": "New Zealand", "region": "East. Southeast Asia & Oceania", "fig_id": "C40_001-Auckland"}, {"id": "fossil0210", "name": "Avon Lake powerplant", "country": "nan", "region": "Other", "fig_id": "fossil0210-AvonLakepowerplant"}, {"id": "fossil0226", "name": "Az Zour powerplant", "country": "nan", "region": "Other", "fig_id": "fossil0226-AzZourpowerplant"}, {"id": "fossil0161", "name": "Baabda", "country": "Lebanon", "region": "South and West Asia", "fig_id": "fossil0161-Baabda"}, {"id": "fossil0109", "name": "Baghdad", "country": "Iraq", "region": "South and West Asia", "fig_id": "fossil0109-Baghdad"}, {"id": "fossil0090", "name": "Baltimore", "country": "USA", "region": "North America", "fig_id": "fossil0090-Baltimore"}, {"id": "fossil0107", "name": "Bangalore", "country": "India", "region": "South and West Asia", "fig_id": "fossil0107-Bangalore"}, {"id": "fossil0055", "name": "Baotou", "country": "China", "region": "Central East Asia", "fig_id": "fossil0055-Baotou"}, {"id": "fossil0089", "name": "Barcelona", "country": "Spain", "region": "Europe", "fig_id": "fossil0089-Barcelona"}, {"id": "fossil0017", "name": "Beijing", "country": "China", "region": "Central East Asia", "fig_id": "fossil0017-Beijing"}, {"id": "fossil0193", "name": "Belchatow powerplant", "country": "nan", "region": "Other", "fig_id": "fossil0193-Belchatowpowerplant"}, {"id": "fossil0016", "name": "Benha", "country": "Egypt", "region": "Africa", "fig_id": "fossil0016-Benha"}, {"id": "fossil0093", "name": "Birmingham", "country": "UK", "region": "Europe", "fig_id": "fossil0093-Birmingham"}, {"id": "fossil0111", "name": "Bogota", "country": "Colombia", "region": "Latin America", "fig_id": "fossil0111-Bogota"}, {"id": "fossil0054", "name": "Boston", "country": "USA", "region": "North America", "fig_id": "fossil0054-Boston"}, {"id": "fossil0190", "name": "Boundary Dam powerplant", "country": "nan", "region": "Other", "fig_id": "fossil0190-BoundaryDampowerplant"}, {"id": "fossil0188", "name": "Bowen powerplant", "country": "nan", "region": "Other", "fig_id": "fossil0188-Bowenpowerplant"}, {"id": "fossil0072", "name": "Brisbane", "country": "Australia", "region": "East. Southeast Asia & Oceania", "fig_id": "fossil0072-Brisbane"}, {"id": "fossil0171", "name": "Brussels", "country": "Belgium", "region": "Europe", "fig_id": "fossil0171-Brussels"}, {"id": "fossil0166", "name": "Bucharest", "country": "Romania", "region": "Europe", "fig_id": "fossil0166-Bucharest"}, {"id": "fossil0169", "name": "Budapest", "country": "Hungary", "region": "Europe", "fig_id": "fossil0169-Budapest"}, {"id": "fossil0035", "name": "Buenos Aires", "country": "Argentina", "region": "Latin America", "fig_id": "fossil0035-BuenosAires"}, {"id": "fossil0236", "name": "Cairo", "country": "Egypt", "region": "Africa", "fig_id": "fossil0236-Cairo"}, {"id": "fossil0145", "name": "Calgary", "country": "Canada", "region": "North America", "fig_id": "fossil0145-Calgary"}, {"id": "fossil0086", "name": "Cape Town", "country": "South Africa", "region": "Africa", "fig_id": "fossil0086-CapeTown"}, {"id": "fossil0106", "name": "Caracas", "country": "Venezuela", "region": "Latin America", "fig_id": "fossil0106-Caracas"}, {"id": "fossil0091", "name": "Changchun", "country": "China", "region": "Central East Asia", "fig_id": "fossil0091-Changchun"}, {"id": "fossil0052", "name": "Chengdu", "country": "China", "region": "Central East Asia", "fig_id": "fossil0052-Chengdu"}, {"id": "fossil0105", "name": "Chennai", "country": "India", "region": "South and West Asia", "fig_id": "fossil0105-Chennai"}, {"id": "fossil0008", "name": "Chicago", "country": "USA", "region": "North America", "fig_id": "fossil0008-Chicago"}, {"id": "fossil0123", "name": "Chifeng", "country": "China", "region": "Central East Asia", "fig_id": "fossil0123-Chifeng"}, {"id": "fossil0140", "name": "Chios", "country": "Turkey", "region": "Europe", "fig_id": "fossil0140-Chios"}, {"id": "fossil0066", "name": "Chongqing", "country": "China", "region": "Central East Asia", "fig_id": "fossil0066-Chongqing"}, {"id": "C40_032", "name": "Christchurch", "country": "New Zealand", "region": "East. Southeast Asia & Oceania", "fig_id": "C40_032-Christchurch"}, {"id": "fossil0097", "name": "Cleveland", "country": "USA", "region": "North America", "fig_id": "fossil0097-Cleveland"}, {"id": "fossil0030", "name": "Cologne", "country": "Germany", "region": "Europe", "fig_id": "fossil0030-Cologne"}, {"id": "fossil0183", "name": "Colstrip powerplant", "country": "nan", "region": "Other", "fig_id": "fossil0183-Colstrippowerplant"}, {"id": "fossil0116", "name": "Columbus", "country": "USA", "region": "North America", "fig_id": "fossil0116-Columbus"}, {"id": "fossil0185", "name": "Comanche powerplant", "country": "nan", "region": "Other", "fig_id": "fossil0185-Comanchepowerplant"}, {"id": "fossil0229", "name": "Cumberland_powerplant", "country": "nan", "region": "Other", "fig_id": "fossil0229-Cumberland_powerplant"}, {"id": "C40_027", "name": "Curitiba", "country": "Brazil", "region": "Latin America", "fig_id": "C40_027-Curitiba"}, {"id": "C40_007", "name": "Dakar", "country": "Senegal", "region": "Africa", "fig_id": "C40_007-Dakar"}, {"id": "fossil0073", "name": "Dalian", "country": "China", "region": "Central East Asia", "fig_id": "fossil0073-Dalian"}, {"id": "fossil0023", "name": "Dallas", "country": "USA", "region": "North America", "fig_id": "fossil0023-Dallas"}, {"id": "fossil0194", "name": "Dangjin Yonghungdo Taean powerplants", "country": "nan", "region": "Other", "fig_id": "fossil0194-DangjinYonghungdoTaeanpowerplants"}, {"id": "C40_008", "name": "Dar es Salaam", "country": "Tanzania", "region": "Africa", "fig_id": "C40_008-DaresSalaam"}, {"id": "fossil0214", "name": "Datang Tuoketuo powerplant", "country": "nan", "region": "Other", "fig_id": "fossil0214-DatangTuoketuopowerplant"}, {"id": "fossil0129", "name": "Datong Shanxi", "country": "China", "region": "Central East Asia", "fig_id": "fossil0129-DatongShanxi"}, {"id": "fossil0057", "name": "Denver", "country": "USA", "region": "North America", "fig_id": "fossil0057-Denver"}, {"id": "fossil0026", "name": "Detroit", "country": "USA", "region": "North America", "fig_id": "fossil0026-Detroit"}, {"id": "fossil0144", "name": "Dhaka", "country": "Bangladesh", "region": "South and West Asia", "fig_id": "fossil0144-Dhaka"}, {"id": "fossil0205", "name": "Dickerson powerplant", "country": "nan", "region": "Other", "fig_id": "fossil0205-Dickersonpowerplant"}, {"id": "fossil0192", "name": "Dofasco powerplant", "country": "nan", "region": "Other", "fig_id": "fossil0192-Dofascopowerplant"}, {"id": "fossil0067", "name": "Doha", "country": "Qatar", "region": "South and West Asia", "fig_id": "fossil0067-Doha"}, {"id": "fossil0231", "name": "Dry_Fork_Station_powerplant", "country": "nan", "region": "Other", "fig_id": "fossil0231-Dry_Fork_Station_powerplant"}, {"id": "fossil0011", "name": "Dubai", "country": "UAE", "region": "South and West Asia", "fig_id": "fossil0011-Dubai"}, {"id": "fossil0099", "name": "Durban", "country": "South Africa", "region": "Africa", "fig_id": "fossil0099-Durban"}, {"id": "fossil0198", "name": "Duvha Kendal Kirel Matla powerplants", "country": "nan", "region": "Other", "fig_id": "fossil0198-DuvhaKendalKirelMatlapowerplants"}, {"id": "fossil0117", "name": "Esfahan", "country": "Iran", "region": "South and West Asia", "fig_id": "fossil0117-Esfahan"}, {"id": "C40_010", "name": "Freetown", "country": "Sierra Leone", "region": "Africa", "fig_id": "C40_010-Freetown"}, {"id": "fossil0098", "name": "Fremantle", "country": "Australia", "region": "East. Southeast Asia & Oceania", "fig_id": "fossil0098-Fremantle"}, {"id": "fossil0213", "name": "GG Allen powerplant", "country": "nan", "region": "Other", "fig_id": "fossil0213-GGAllenpowerplant"}, {"id": "fossil0142", "name": "Guadalajara", "country": "Mexico", "region": "Latin America", "fig_id": "fossil0142-Guadalajara"}, {"id": "fossil0002", "name": "Guangzhou", "country": "China", "region": "Central East Asia", "fig_id": "fossil0002-Guangzhou"}, {"id": "fossil0104", "name": "Guiyang", "country": "China", "region": "Central East Asia", "fig_id": "fossil0104-Guiyang"}, {"id": "fossil0227", "name": "Gwangyang powerplant", "country": "nan", "region": "Other", "fig_id": "fossil0227-Gwangyangpowerplant"}, {"id": "fossil0209", "name": "Hammond powerplant", "country": "nan", "region": "Other", "fig_id": "fossil0209-Hammondpowerplant"}, {"id": "fossil0041", "name": "Hangzhou", "country": "China", "region": "Central East Asia", "fig_id": "fossil0041-Hangzhou"}, {"id": "fossil0136", "name": "Hanoi", "country": "Vietnam", "region": "East. Southeast Asia & Oceania", "fig_id": "fossil0136-Hanoi"}, {"id": "fossil0096", "name": "Harbin", "country": "China", "region": "Central East Asia", "fig_id": "fossil0096-Harbin"}, {"id": "fossil0201", "name": "Hazelwood Yallourn Loy Yang powerplants", "country": "nan", "region": "Other", "fig_id": "fossil0201-HazelwoodYallournLoyYangpowerplants"}, {"id": "fossil0094", "name": "Hefei", "country": "China", "region": "Central East Asia", "fig_id": "fossil0094-Hefei"}, {"id": "fossil0222", "name": "Hekinan powerplant", "country": "nan", "region": "Other", "fig_id": "fossil0222-Hekinanpowerplant"}, {"id": "fossil0088", "name": "Ho Chi Minh City", "country": "Vietnam", "region": "East. Southeast Asia & Oceania", "fig_id": "fossil0088-HoChiMinhCity"}, {"id": "fossil0004", "name": "Hong Kong", "country": "China", "region": "Central East Asia", "fig_id": "fossil0004-HongKong"}, {"id": "fossil0031", "name": "Houston", "country": "USA", "region": "North America", "fig_id": "fossil0031-Houston"}, {"id": "fossil0237", "name": "Houston_GeoCarb", "country": "USA", "region": "Other", "fig_id": "fossil0237-Houston_GeoCarb"}, {"id": "fossil0053", "name": "Huhot", "country": "China", "region": "Central East Asia", "fig_id": "fossil0053-Huhot"}, {"id": "fossil0087", "name": "Hyderabad", "country": "India", "region": "South and West Asia", "fig_id": "fossil0087-Hyderabad"}, {"id": "fossil0119", "name": "Indianapolis", "country": "USA", "region": "North America", "fig_id": "fossil0119-Indianapolis"}, {"id": "fossil0235", "name": "Intermountain_powerplant", "country": "nan", "region": "Other", "fig_id": "fossil0235-Intermountain_powerplant"}, {"id": "fossil0025", "name": "Istanbul", "country": "Turkey", "region": "Europe", "fig_id": "fossil0025-Istanbul"}, {"id": "C40_029", "name": "Jaipur", "country": "India", "region": "South and West Asia", "fig_id": "C40_029-Jaipur"}, {"id": "fossil0018", "name": "Jakarta", "country": "Indonesia", "region": "East. Southeast Asia & Oceania", "fig_id": "fossil0018-Jakarta"}, {"id": "fossil0182", "name": "Janschwalde", "country": "Germany", "region": "Other", "fig_id": "fossil0182-Janschwalde"}, {"id": "fossil0032", "name": "Jeddah", "country": "Saudi Arabia", "region": "South and West Asia", "fig_id": "fossil0032-Jeddah"}, {"id": "fossil0083", "name": "Jinan", "country": "China", "region": "Central East Asia", "fig_id": "fossil0083-Jinan"}, {"id": "fossil0013", "name": "Johannesburg", "country": "South Africa", "region": "Africa", "fig_id": "fossil0013-Johannesburg"}, {"id": "fossil0206", "name": "Joliet powerplant", "country": "nan", "region": "Other", "fig_id": "fossil0206-Jolietpowerplant"}, {"id": "fossil0103", "name": "Kansas City", "country": "USA", "region": "North America", "fig_id": "fossil0103-KansasCity"}, {"id": "fossil0143", "name": "Kaoshsiung", "country": "Taiwan", "region": "East. Southeast Asia & Oceania", "fig_id": "fossil0143-Kaoshsiung"}, {"id": "fossil0174", "name": "Karachi", "country": "Pakistan", "region": "South and West Asia", "fig_id": "fossil0174-Karachi"}, {"id": "fossil0172", "name": "Katowice", "country": "Poland", "region": "Europe", "fig_id": "fossil0172-Katowice"}, {"id": "fossil0223", "name": "Kendal powerplant", "country": "nan", "region": "Other", "fig_id": "fossil0223-Kendalpowerplant"}, {"id": "fossil0187", "name": "Keystone HomerCity Conemaugh Powerplants", "country": "nan", "region": "Other", "fig_id": "fossil0187-KeystoneHomerCityConemaughPowerplants"}, {"id": "fossil0178", "name": "Khartoum", "country": "Sudan", "region": "Africa", "fig_id": "fossil0178-Khartoum"}, {"id": "C40_033", "name": "Kinshasa", "country": "DR Congo", "region": "Africa", "fig_id": "C40_033-Kinshasa"}, {"id": "fossil0048", "name": "Kolkata", "country": "India", "region": "South and West Asia", "fig_id": "fossil0048-Kolkata"}, {"id": "fossil0224", "name": "Korba powerplant", "country": "nan", "region": "Other", "fig_id": "fossil0224-Korbapowerplant"}, {"id": "fossil0240", "name": "LA_STAQS_AEROMMA", "country": "nan", "region": "Other", "fig_id": "fossil0240-LA_STAQS_AEROMMA"}, {"id": "fossil0228", "name": "Labadie_powerplant", "country": "nan", "region": "Other", "fig_id": "fossil0228-Labadie_powerplant"}, {"id": "fossil0175", "name": "Lagos", "country": "Nigeria", "region": "Africa", "fig_id": "fossil0175-Lagos"}, {"id": "fossil0168", "name": "Lahore", "country": "Pakistan", "region": "South and West Asia", "fig_id": "fossil0168-Lahore"}, {"id": "fossil0100", "name": "Las Vegas", "country": "USA", "region": "North America", "fig_id": "fossil0100-LasVegas"}, {"id": "fossil0101", "name": "Lima", "country": "Peru", "region": "Latin America", "fig_id": "fossil0101-Lima"}, {"id": "C40_014", "name": "Lisbon", "country": "Portugal", "region": "Europe", "fig_id": "C40_014-Lisbon"}, {"id": "fossil0015", "name": "London", "country": "UK", "region": "Europe", "fig_id": "fossil0015-London"}, {"id": "fossil0005", "name": "Los Angeles", "country": "USA", "region": "North America", "fig_id": "fossil0005-LosAngeles"}, {"id": "fossil0176", "name": "Luanda", "country": "Angola", "region": "Africa", "fig_id": "fossil0176-Luanda"}, {"id": "fossil0047", "name": "Madrid", "country": "Spain", "region": "Europe", "fig_id": "fossil0047-Madrid"}, {"id": "fossil0155", "name": "Maebashi", "country": "Japan", "region": "East. Southeast Asia & Oceania", "fig_id": "fossil0155-Maebashi"}, {"id": "fossil0115", "name": "Manila", "country": "Philippines", "region": "East. Southeast Asia & Oceania", "fig_id": "fossil0115-Manila"}, {"id": "fossil0167", "name": "Maracaibo", "country": "Venezuela", "region": "Latin America", "fig_id": "fossil0167-Maracaibo"}, {"id": "fossil0102", "name": "Mashhad", "country": "Iran", "region": "South and West Asia", "fig_id": "fossil0102-Mashhad"}, {"id": "fossil0127", "name": "Mecca", "country": "Saudi Arabia", "region": "South and West Asia", "fig_id": "fossil0127-Mecca"}, {"id": "C40_015", "name": "Medellin", "country": "Colombia", "region": "Latin America", "fig_id": "C40_015-Medellin"}, {"id": "fossil0150", "name": "Medina", "country": "Saudi Arabia", "region": "South and West Asia", "fig_id": "fossil0150-Medina"}, {"id": "fossil0045", "name": "Melbourne", "country": "Australia", "region": "East. Southeast Asia & Oceania", "fig_id": "fossil0045-Melbourne"}, {"id": "fossil0212", "name": "Meramec powerplant", "country": "nan", "region": "Other", "fig_id": "fossil0212-Meramecpowerplant"}, {"id": "fossil0036", "name": "Mexico City", "country": "Mexico", "region": "Latin America", "fig_id": "fossil0036-MexicoCity"}, {"id": "fossil0020", "name": "Miami", "country": "USA", "region": "North America", "fig_id": "fossil0020-Miami"}, {"id": "fossil0075", "name": "Milan", "country": "Italy", "region": "Europe", "fig_id": "fossil0075-Milan"}, {"id": "fossil0180", "name": "Miller Power Plant", "country": "USA", "region": "Other", "fig_id": "fossil0180-MillerPowerPlant"}, {"id": "fossil0064", "name": "Minneapolis", "country": "USA", "region": "North America", "fig_id": "fossil0064-Minneapolis"}, {"id": "fossil0184", "name": "Monroe powerplant", "country": "nan", "region": "Other", "fig_id": "fossil0184-Monroepowerplant"}, {"id": "fossil0135", "name": "Monterrey", "country": "Mexico", "region": "Latin America", "fig_id": "fossil0135-Monterrey"}, {"id": "fossil0080", "name": "Montreal", "country": "Canada", "region": "North America", "fig_id": "fossil0080-Montreal"}, {"id": "fossil0068", "name": "Mumbai", "country": "India", "region": "South and West Asia", "fig_id": "fossil0068-Mumbai"}, {"id": "fossil0218", "name": "Mundra Umpp powerplant", "country": "nan", "region": "Other", "fig_id": "fossil0218-MundraUmpppowerplant"}, {"id": "fossil0159", "name": "Munich", "country": "Germany", "region": "Europe", "fig_id": "fossil0159-Munich"}, {"id": "fossil0079", "name": "Nagoya", "country": "Japan", "region": "East. Southeast Asia & Oceania", "fig_id": "fossil0079-Nagoya"}, {"id": "fossil0179", "name": "Nairobi", "country": "Kenya", "region": "Africa", "fig_id": "fossil0179-Nairobi"}, {"id": "fossil0043", "name": "Nanjing", "country": "China", "region": "Central East Asia", "fig_id": "fossil0043-Nanjing"}, {"id": "fossil0141", "name": "Naples", "country": "Italy", "region": "Europe", "fig_id": "fossil0141-Naples"}, {"id": "fossil0029", "name": "New Delhi", "country": "India", "region": "South and West Asia", "fig_id": "fossil0029-NewDelhi"}, {"id": "fossil0138", "name": "New Orleans", "country": "USA", "region": "North America", "fig_id": "fossil0138-NewOrleans"}, {"id": "fossil0003", "name": "New York", "country": "USA", "region": "North America", "fig_id": "fossil0003-NewYork"}, {"id": "fossil0217", "name": "Niederaussem powerplant", "country": "nan", "region": "Other", "fig_id": "fossil0217-Niederaussempowerplant"}, {"id": "fossil0131", "name": "Ningbo", "country": "China", "region": "Central East Asia", "fig_id": "fossil0131-Ningbo"}, {"id": "fossil0211", "name": "North Valmy powerplant", "country": "nan", "region": "Other", "fig_id": "fossil0211-NorthValmypowerplant"}, {"id": "fossil0108", "name": "Orlando", "country": "USA", "region": "North America", "fig_id": "fossil0108-Orlando"}, {"id": "fossil0034", "name": "Osaka", "country": "Japan", "region": "East. Southeast Asia & Oceania", "fig_id": "fossil0034-Osaka"}, {"id": "fossil0221", "name": "PLTU Paiton powerplant", "country": "nan", "region": "Other", "fig_id": "fossil0221-PLTUPaitonpowerplant"}, {"id": "fossil0022", "name": "Paris", "country": "France", "region": "Europe", "fig_id": "fossil0022-Paris"}, {"id": "fossil0177", "name": "Peshawar", "country": "Pakistan", "region": "South and West Asia", "fig_id": "fossil0177-Peshawar"}, {"id": "fossil0027", "name": "Philadelphia", "country": "USA", "region": "North America", "fig_id": "fossil0027-Philadelphia"}, {"id": "fossil0039", "name": "Phoenix", "country": "USA", "region": "North America", "fig_id": "fossil0039-Phoenix"}, {"id": "fossil0200", "name": "Pingwei Tianji Bengbu Fengtai Luohe powerplants", "country": "nan", "region": "Other", "fig_id": "fossil0200-PingweiTianjiBengbuFengtaiLuohepowerplants"}, {"id": "fossil0146", "name": "Pittsburgh", "country": "USA", "region": "North America", "fig_id": "fossil0146-Pittsburgh"}, {"id": "fossil0232", "name": "Poplar_River_powerplan", "country": "nan", "region": "Other", "fig_id": "fossil0232-Poplar_River_powerplan"}, {"id": "fossil0118", "name": "Portland", "country": "USA", "region": "North America", "fig_id": "fossil0118-Portland"}, {"id": "fossil0163", "name": "Prague", "country": "Czech Republic", "region": "Europe", "fig_id": "fossil0163-Prague"}, {"id": "fossil0125", "name": "Pune", "country": "India", "region": "South and West Asia", "fig_id": "fossil0125-Pune"}, {"id": "fossil0049", "name": "Pusan", "country": "South Korea", "region": "East. Southeast Asia & Oceania", "fig_id": "fossil0049-Pusan"}, {"id": "fossil0078", "name": "Qingdao", "country": "China", "region": "Central East Asia", "fig_id": "fossil0078-Qingdao"}, {"id": "fossil0071", "name": "Quanzhou", "country": "China", "region": "Central East Asia", "fig_id": "fossil0071-Quanzhou"}, {"id": "C40_019", "name": "Quito", "country": "Ecuador", "region": "Latin America", "fig_id": "C40_019-Quito"}, {"id": "fossil0219", "name": "Rihand powerplant", "country": "nan", "region": "Other", "fig_id": "fossil0219-Rihandpowerplant"}, {"id": "fossil0133", "name": "Rio de Janeiro", "country": "Brazil", "region": "Latin America", "fig_id": "fossil0133-RiodeJaneiro"}, {"id": "fossil0010", "name": "Riyadh", "country": "Saudi Arabia", "region": "South and West Asia", "fig_id": "fossil0010-Riyadh"}, {"id": "fossil0137", "name": "Rome", "country": "Italy", "region": "Europe", "fig_id": "fossil0137-Rome"}, {"id": "fossil0162", "name": "Rostov on Don", "country": "Russia", "region": "Europe", "fig_id": "fossil0162-RostovonDon"}, {"id": "fossil0085", "name": "Rotterdam", "country": "Netherlands", "region": "Europe", "fig_id": "fossil0085-Rotterdam"}, {"id": "fossil0110", "name": "Sacramento", "country": "USA", "region": "North America", "fig_id": "fossil0110-Sacramento"}, {"id": "fossil0149", "name": "Salt Lake City", "country": "USA", "region": "North America", "fig_id": "fossil0149-SaltLakeCity"}, {"id": "C40_020", "name": "Salvador", "country": "Brazil", "region": "Latin America", "fig_id": "C40_020-Salvador"}, {"id": "fossil0186", "name": "Sammis Cardinal Mansfield powerplants", "country": "nan", "region": "Other", "fig_id": "fossil0186-SammisCardinalMansfieldpowerplants"}, {"id": "fossil0021", "name": "Samut Prakan", "country": "Thailand", "region": "East. Southeast Asia & Oceania", "fig_id": "fossil0021-SamutPrakan"}, {"id": "fossil0121", "name": "San Antonio", "country": "USA", "region": "North America", "fig_id": "fossil0121-SanAntonio"}, {"id": "fossil0164", "name": "San Cristobal", "country": "Dominican Republic", "region": "North America", "fig_id": "fossil0164-SanCristobal"}, {"id": "fossil0082", "name": "San Diego", "country": "USA", "region": "North America", "fig_id": "fossil0082-SanDiego"}, {"id": "fossil0203", "name": "San Francisco", "country": "USA", "region": "North America", "fig_id": "fossil0203-SanFrancisco"}, {"id": "fossil0028", "name": "San Jose", "country": "USA", "region": "North America", "fig_id": "fossil0028-SanJose"}, {"id": "fossil0084", "name": "Santiago", "country": "Chile", "region": "Latin America", "fig_id": "fossil0084-Santiago"}, {"id": "fossil0062", "name": "Sao Paulo", "country": "Brazil", "region": "Latin America", "fig_id": "fossil0062-SaoPaulo"}, {"id": "fossil0220", "name": "Sasan powerplant", "country": "nan", "region": "Other", "fig_id": "fossil0220-Sasanpowerplant"}, {"id": "fossil0189", "name": "Scherer powerplant", "country": "nan", "region": "Other", "fig_id": "fossil0189-Schererpowerplant"}, {"id": "fossil0060", "name": "Seattle", "country": "USA", "region": "North America", "fig_id": "fossil0060-Seattle"}, {"id": "fossil0001", "name": "Seoul", "country": "South Korea", "region": "East. Southeast Asia & Oceania", "fig_id": "fossil0001-Seoul"}, {"id": "fossil0037", "name": "Shah Alam", "country": "Malaysia", "region": "East. Southeast Asia & Oceania", "fig_id": "fossil0037-ShahAlam"}, {"id": "fossil0195", "name": "Shaiba powerplant", "country": "nan", "region": "Other", "fig_id": "fossil0195-Shaibapowerplant"}, {"id": "fossil0006", "name": "Shanghai", "country": "China", "region": "Central East Asia", "fig_id": "fossil0006-Shanghai"}, {"id": "fossil0046", "name": "Shantou", "country": "China", "region": "Central East Asia", "fig_id": "fossil0046-Shantou"}, {"id": "fossil0191", "name": "Sheerness powerplant", "country": "nan", "region": "Other", "fig_id": "fossil0191-Sheernesspowerplant"}, {"id": "fossil0044", "name": "Shenyang", "country": "China", "region": "Central East Asia", "fig_id": "fossil0044-Shenyang"}, {"id": "fossil0095", "name": "Shijiazhuang", "country": "China", "region": "Central East Asia", "fig_id": "fossil0095-Shijiazhuang"}, {"id": "fossil0007", "name": "Singapore", "country": "Singapore", "region": "East. Southeast Asia & Oceania", "fig_id": "fossil0007-Singapore"}, {"id": "fossil0158", "name": "Sohag", "country": "Egypt", "region": "Africa", "fig_id": "fossil0158-Sohag"}, {"id": "fossil0207", "name": "Somerset Operating powerplant", "country": "nan", "region": "Other", "fig_id": "fossil0207-SomersetOperatingpowerplant"}, {"id": "fossil0230", "name": "Spurlock_powerplant", "country": "nan", "region": "Other", "fig_id": "fossil0230-Spurlock_powerplant"}, {"id": "fossil0081", "name": "St Louis", "country": "USA", "region": "North America", "fig_id": "fossil0081-StLouis"}, {"id": "fossil0134", "name": "St Petersburg", "country": "USA", "region": "North America", "fig_id": "fossil0134-StPetersburg"}, {"id": "fossil0202", "name": "Stanwell powerplant", "country": "nan", "region": "Other", "fig_id": "fossil0202-Stanwellpowerplant"}, {"id": "fossil0050", "name": "Sydney", "country": "Australia", "region": "East. Southeast Asia & Oceania", "fig_id": "fossil0050-Sydney"}, {"id": "fossil0156", "name": "Tabriz", "country": "Iran", "region": "South and West Asia", "fig_id": "fossil0156-Tabriz"}, {"id": "fossil0112", "name": "Taegu", "country": "South Korea", "region": "East. Southeast Asia & Oceania", "fig_id": "fossil0112-Taegu"}, {"id": "fossil0122", "name": "Taejon", "country": "South Korea", "region": "East. Southeast Asia & Oceania", "fig_id": "fossil0122-Taejon"}, {"id": "fossil0132", "name": "Taichung", "country": "Taiwan", "region": "East. Southeast Asia & Oceania", "fig_id": "fossil0132-Taichung"}, {"id": "fossil0038", "name": "Taipei", "country": "Taiwan", "region": "East. Southeast Asia & Oceania", "fig_id": "fossil0038-Taipei"}, {"id": "fossil0056", "name": "Taiyuan", "country": "China", "region": "Central East Asia", "fig_id": "fossil0056-Taiyuan"}, {"id": "fossil0014", "name": "Tehran", "country": "Iran", "region": "South and West Asia", "fig_id": "fossil0014-Tehran"}, {"id": "fossil0074", "name": "Tel Aviv-Yafo", "country": "Israel", "region": "Europe", "fig_id": "fossil0074-TelAviv-Yafo"}, {"id": "fossil0024", "name": "Tianjin", "country": "China", "region": "Central East Asia", "fig_id": "fossil0024-Tianjin"}, {"id": "fossil0238", "name": "Timmins", "country": "Canada", "region": "North America", "fig_id": "fossil0238-Timmins"}, {"id": "fossil0009", "name": "Tokyo", "country": "Japan", "region": "East. Southeast Asia & Oceania", "fig_id": "fossil0009-Tokyo"}, {"id": "fossil0042", "name": "Toronto", "country": "Canada", "region": "North America", "fig_id": "fossil0042-Toronto"}, {"id": "fossil0225", "name": "Tropomi 2 powerplant", "country": "nan", "region": "Other", "fig_id": "fossil0225-Tropomi2powerplant"}, {"id": "fossil0181", "name": "Tutuka and Majuba Powreplant", "country": "nan", "region": "Other", "fig_id": "fossil0181-TutukaandMajubaPowreplant"}, {"id": "fossil0113", "name": "Urumqi", "country": "China", "region": "Central East Asia", "fig_id": "fossil0113-Urumqi"}, {"id": "fossil0128", "name": "Vancouver", "country": "Canada", "region": "North America", "fig_id": "fossil0128-Vancouver"}, {"id": "C40_024", "name": "Venice", "country": "Italy", "region": "Europe", "fig_id": "C40_024-Venice"}, {"id": "fossil0114", "name": "Vienna", "country": "Austria", "region": "Europe", "fig_id": "fossil0114-Vienna"}, {"id": "fossil0199", "name": "Vindhyachal Sasan Singrauli Rihand powerplants", "country": "nan", "region": "Other", "fig_id": "fossil0199-VindhyachalSasanSingrauliRihandpowerplants"}, {"id": "fossil0204", "name": "Wagner powerplant", "country": "nan", "region": "Other", "fig_id": "fossil0204-Wagnerpowerplant"}, {"id": "fossil0215", "name": "Waigaoqiao powerplant", "country": "nan", "region": "Other", "fig_id": "fossil0215-Waigaoqiaopowerplant"}, {"id": "fossil0152", "name": "Warsaw", "country": "Poland", "region": "Europe", "fig_id": "fossil0152-Warsaw"}, {"id": "fossil0033", "name": "Washington DC", "country": "USA", "region": "North America", "fig_id": "fossil0033-WashingtonDC"}, {"id": "fossil0070", "name": "Wenzhou", "country": "China", "region": "Central East Asia", "fig_id": "fossil0070-Wenzhou"}, {"id": "fossil0208", "name": "Will County powerplant", "country": "nan", "region": "Other", "fig_id": "fossil0208-WillCountypowerplant"}, {"id": "fossil0040", "name": "Wuhan", "country": "China", "region": "Central East Asia", "fig_id": "fossil0040-Wuhan"}, {"id": "fossil0012", "name": "Wuxi", "country": "China", "region": "Central East Asia", "fig_id": "fossil0012-Wuxi"}, {"id": "fossil0130", "name": "Xiamen", "country": "China", "region": "Central East Asia", "fig_id": "fossil0130-Xiamen"}, {"id": "fossil0051", "name": "Xian", "country": "China", "region": "Central East Asia", "fig_id": "fossil0051-Xian"}, {"id": "fossil0239", "name": "Xinjiang_Shenhuo_powerplants", "country": "nan", "region": "Other", "fig_id": "fossil0239-Xinjiang_Shenhuo_powerplants"}, {"id": "fossil0061", "name": "Yinchuan", "country": "China", "region": "Central East Asia", "fig_id": "fossil0061-Yinchuan"}, {"id": "fossil0065", "name": "Zhengzhou", "country": "China", "region": "Central East Asia", "fig_id": "fossil0065-Zhengzhou"}, {"id": "fossil0120", "name": "Zibo", "country": "China", "region": "Central East Asia", "fig_id": "fossil0120-Zibo"}];
+const VER = 'v26.03.25';
+const SUBFOLDER = 'edgar/v26.03.25';
+let selectedYear = 2020;
+let lightboxImages = [];  // [{src, caption}]
+let lightboxIndex  = 0;
+
+
+// ── Populate region dropdown ──────────────────────────────────────────
+const regions = [...new Set(CITIES.map(c => c.region))].sort();
+const regionSel = document.getElementById('region-select');
+regions.forEach(r => {
+  const opt = document.createElement('option');
+  opt.value = r; opt.textContent = r;
+  regionSel.appendChild(opt);
+});
+
+// ── Filter cities by region ───────────────────────────────────────────
+function filterCities() {
+  const region = document.getElementById('region-select').value;
+  const citySel = document.getElementById('city-select');
+  citySel.innerHTML = '<option value="">Select a city...</option>';
+  const filtered = region ? CITIES.filter(c => c.region === region) : CITIES;
+  filtered.sort((a,b) => a.name.localeCompare(b.name)).forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c.fig_id;
+    opt.textContent = c.name + ' (' + c.country + ')';
+    citySel.appendChild(opt);
+  });
+  document.getElementById('fig-grid').innerHTML =
+    '<div style="grid-column:1/-1;color:#aaa;text-align:center;padding:60px 0;font-size:1.1em;">Select a city above to view EDGAR CO&#8322; figures.</div>';
+  document.getElementById('city-info').style.display = 'none';
+}
+
+// ── Year toggle ───────────────────────────────────────────────────────
+function selectYear(year, btn) {
+  selectedYear = year;
+  document.querySelectorAll('.year-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  updateFigures();
+}
+
+// ── Build figure grid ─────────────────────────────────────────────────
+function updateFigures() {
+  const figId = document.getElementById('city-select').value;
+  if (!figId) return;
+
+  const city = CITIES.find(c => c.fig_id === figId);
+  const infoDiv = document.getElementById('city-info');
+  if (city) {
+    infoDiv.style.display = 'block';
+    infoDiv.innerHTML = '<strong>' + city.name + '</strong>&nbsp;&nbsp;|&nbsp;&nbsp;'
+      + city.country + '&nbsp;&nbsp;|&nbsp;&nbsp;' + city.region;
+  }
+
+  const base  = 'd_fig/' + SUBFOLDER + '/';
+  const types = [
+    { key: 'orig', label: 'Original Domain' },
+    { key: 'rect', label: 'Rectangular Domain' },
+    { key: 'sqre', label: 'Square Domain' }
+  ];
+
+  lightboxImages = [];
+  const grid = document.getElementById('fig-grid');
+  grid.innerHTML = '';
+
+  types.forEach((t, idx) => {
+    const fname = 'ed_' + figId + '_co2_' + selectedYear
+      + '_ghssmod-V2_0-' + VER + '.a-' + t.key + '_' + VER + '.png';
+    const src = base + fname;
+    const caption = city.name + ' — ' + t.label + ' (' + selectedYear + ')';
+
+    lightboxImages.push({ src, caption });
+
+    const card = document.createElement('div');
+    card.className = 'fig-card';
+    card.innerHTML = '<div class="fig-label">' + t.label + '</div>';
+
+    const img = document.createElement('img');
+    img.src = src;
+    img.alt = caption;
+    img.title = 'Click to enlarge';
+    img.onclick = () => openLightbox(idx);
+    img.onerror = function() {
+      this.style.display = 'none';
+      const msg = document.createElement('div');
+      msg.className = 'fig-missing';
+      msg.textContent = 'Figure not available';
+      card.appendChild(msg);
+      // remove from lightbox if missing
+      lightboxImages[idx] = null;
+    };
+
+    const hint = document.createElement('div');
+    hint.className = 'zoom-hint';
+    hint.textContent = '🔍 Click to enlarge';
+
+    card.appendChild(img);
+    card.appendChild(hint);
+    grid.appendChild(card);
+  });
+}
+
+// ── Lightbox ──────────────────────────────────────────────────────────
+function openLightbox(idx) {
+  const valid = lightboxImages.filter(Boolean);
+  if (!valid.length) return;
+  lightboxIndex = idx;
+  showLightboxImage(idx);
+  document.getElementById('lightbox').classList.add('open');
+  document.addEventListener('keydown', lightboxKeyHandler);
+}
+
+function showLightboxImage(idx) {
+  const item = lightboxImages[idx];
+  if (!item) return;
+  document.getElementById('lightbox-img').src = item.src;
+  document.getElementById('lightbox-caption').textContent = item.caption;
+  lightboxIndex = idx;
+}
+
+function shiftLightbox(dir) {
+  let next = lightboxIndex + dir;
+  // skip nulls (missing figures)
+  while (next >= 0 && next < lightboxImages.length && !lightboxImages[next]) next += dir;
+  if (next >= 0 && next < lightboxImages.length) showLightboxImage(next);
+}
+
+function closeLightbox(e) {
+  if (e && e.target === document.getElementById('lightbox-img')) return;
+  document.getElementById('lightbox').classList.remove('open');
+  document.removeEventListener('keydown', lightboxKeyHandler);
+}
+
+function lightboxKeyHandler(e) {
+  if (e.key === 'ArrowRight') shiftLightbox(1);
+  if (e.key === 'ArrowLeft')  shiftLightbox(-1);
+  if (e.key === 'Escape')     closeLightbox();
+}
+
+// ── Init ──────────────────────────────────────────────────────────────
+filterCities();
+
+</script>
+```

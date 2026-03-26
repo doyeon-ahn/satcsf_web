@@ -1,6 +1,8 @@
 project:
   type: website
   output-dir: docs
+  resources: 
+   - "d_fig/**"
 
 website:
   title: "SatCSF"
@@ -8,7 +10,7 @@ website:
     left:
       - href: index.qmd
         text: Home
-      - href: cities/cities.qmd
+      - href: cities.qmd
         text: Cities
 
 format:
