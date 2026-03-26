@@ -1,0 +1,12 @@
+---
+title: "Satellite-Based City-Scale Flux Estimates"
+---
+
+This project estimates CO₂ and NOₓ city-scale fluxes for global cities
+globally using OCO-3 and TROPOMI satellite observations, and compares
+them with bottom-up inventories (EDGAR, ODIAC, GPC).
+
+## Key Result
+
+![CO₂ emissions vs. GDP per capita across C40 cities, colored by region.
+Circle size represents city population.](d_fig/gauss/kaya_city_flux_annual_pergdp_t.png)

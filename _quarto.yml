@@ -1,0 +1,19 @@
+project:
+  type: website
+  output-dir: _site
+
+website:
+  title: "SatCSF"
+  navbar:
+    left:
+      - href: index.qmd
+        text: Home
+      - href: cities/cities.qmd
+        text: Cities
+
+format:
+  html:
+    theme: cosmo       # try: cosmo, flatly, litera, journal, pulse
+    toc: true
+    toc-depth: 2
+

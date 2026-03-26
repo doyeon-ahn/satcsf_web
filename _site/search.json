@@ -1,0 +1,23 @@
+[
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "Satellite-Based City-Scale Flux Estimates",
+    "section": "",
+    "text": "This project estimates CO₂ and NOₓ city-scale fluxes for global cities globally using OCO-3 and TROPOMI satellite observations, and compares them with bottom-up inventories (EDGAR, ODIAC, GPC)."
+  },
+  {
+    "objectID": "index.html#key-result",
+    "href": "index.html#key-result",
+    "title": "Satellite-Based City-Scale Flux Estimates",
+    "section": "Key Result",
+    "text": "Key Result\n\n\n\nCO₂ emissions vs. GDP per capita across C40 cities, colored by region. Circle size represents city population."
+  },
+  {
+    "objectID": "about.html",
+    "href": "about.html",
+    "title": "About",
+    "section": "",
+    "text": "About this site"
+  }
+]
