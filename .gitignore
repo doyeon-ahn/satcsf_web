@@ -1,5 +1,4 @@
 .quarto/
-d_fig
-
 /.quarto/
 **/*.quarto_ipynb
+/d_fig
